@@ -2164,162 +2164,1986 @@ Espresso is a UI testing framework provided by Android for writing automated tes
 
 
 12. Activity & Fragment Lifecycle
-What are the different states of an Activity lifecycle?
+---
 
+### **1. What are the different states of an Activity lifecycle?**
 
-What happens when you rotate the screen in Android?
+The Activity lifecycle in Android describes the states an Activity goes through from creation to destruction. Each state is managed by lifecycle callback methods:
 
+#### **Activity Lifecycle States and Methods**
+1. **Created (`onCreate`)**
+   - **State**: The Activity is being created.
+   - **Callback**: `onCreate(Bundle savedInstanceState)`
+   - **Purpose**:
+     - Initialize components like views, variables, or services.
+     - Set up the UI using `setContentView()`.
+     - Restore saved state using the `savedInstanceState` parameter (if applicable).
+   - **Example**:
+     ```java
+     @Override
+     protected void onCreate(Bundle savedInstanceState) {
+         super.onCreate(savedInstanceState);
+         setContentView(R.layout.activity_main);
+     }
+     ```
 
-How do you save and restore UI state in Android?
+2. **Started (`onStart`)**
+   - **State**: The Activity is becoming visible to the user.
+   - **Callback**: `onStart()`
+   - **Purpose**:
+     - Prepare the UI for interaction but do not yet engage the user.
+     - Start animations or update UI components.
+   - **Example**:
+     ```java
+     @Override
+     protected void onStart() {
+         super.onStart();
+         // Activity is now visible
+     }
+     ```
 
+3. **Resumed (`onResume`)**
+   - **State**: The Activity is in the foreground and interacting with the user.
+   - **Callback**: `onResume()`
+   - **Purpose**:
+     - Resume tasks that were paused (e.g., start sensors, resume animations).
+   - **Example**:
+     ```java
+     @Override
+     protected void onResume() {
+         super.onResume();
+         // Activity is now in the foreground
+     }
+     ```
 
-What are the lifecycle methods of a Fragment?
+4. **Paused (`onPause`)**
+   - **State**: The Activity is partially obscured (e.g., another Activity appears in front, but this one is still visible in the background).
+   - **Callback**: `onPause()`
+   - **Purpose**:
+     - Pause ongoing tasks (e.g., animations, video playback).
+     - Save transient UI state (e.g., scroll position).
+   - **Example**:
+     ```java
+     @Override
+     protected void onPause() {
+         super.onPause();
+         // Pause resources or tasks
+     }
+     ```
 
+5. **Stopped (`onStop`)**
+   - **State**: The Activity is completely hidden from the user.
+   - **Callback**: `onStop()`
+   - **Purpose**:
+     - Release resources that are not needed when the activity is not visible (e.g., stop camera previews, unregister listeners).
+   - **Example**:
+     ```java
+     @Override
+     protected void onStop() {
+         super.onStop();
+         // Activity is now hidden
+     }
+     ```
 
-How do you replace one Fragment with another dynamically?
+6. **Destroyed (`onDestroy`)**
+   - **State**: The Activity is being destroyed and removed from memory.
+   - **Callback**: `onDestroy()`
+   - **Purpose**:
+     - Clean up resources like threads, listeners, or references to avoid memory leaks.
+   - **Example**:
+     ```java
+     @Override
+     protected void onDestroy() {
+         super.onDestroy();
+         // Cleanup logic
+     }
+     ```
+
+---
+
+### **2. What happens when you rotate the screen in Android?**
+
+When the screen is rotated (e.g., from portrait to landscape):
+1. **Configuration Change**:
+   - A screen rotation triggers a **configuration change** (e.g., orientation change).
+   - The system destroys the existing Activity instance and creates a new one.
+
+2. **Lifecycle Methods Called**:
+   - The Activity goes through the following lifecycle methods:
+     - `onPause()` → `onStop()` → `onDestroy()`
+     - `onCreate()` → `onStart()` → `onResume()` (for the new instance).
+
+3. **Why is the Activity Recreated?**
+   - The recreation ensures that the UI is redrawn to match the new orientation and resources (e.g., different layouts for `res/layout` and `res/layout-land`).
+
+4. **Handling State During Rotation**:
+   - **Temporary State**: Use `onSaveInstanceState(Bundle outState)` to save the state.
+   - **Restore State**: Use `onRestoreInstanceState(Bundle savedInstanceState)` or the `savedInstanceState` parameter in `onCreate()`.
+
+#### **Example for Saving and Restoring State:**
+```java
+@Override
+protected void onSaveInstanceState(Bundle outState) {
+    super.onSaveInstanceState(outState);
+    outState.putString("key", "value");
+}
+
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    if (savedInstanceState != null) {
+        String value = savedInstanceState.getString("key");
+    }
+}
+```
+
+5. **Preventing Activity Recreation**:
+   - You can handle configuration changes manually by adding the following in the `AndroidManifest.xml` file:
+     ```xml
+     <activity android:name=".MainActivity"
+         android:configChanges="orientation|screenSize" />
+     ```
+   - **Caution**: You will need to handle the UI changes manually in `onConfigurationChanged()`.
+
+---
+
+### **3. How do you save and restore UI state in Android?**
+
+1. **Save UI State**:
+   - Use `onSaveInstanceState(Bundle outState)` to save transient UI data like text input, scroll position, or selected items.
+   - Example:
+     ```java
+     @Override
+     protected void onSaveInstanceState(Bundle outState) {
+         super.onSaveInstanceState(outState);
+         outState.putString("text", editText.getText().toString());
+     }
+     ```
+
+2. **Restore UI State**:
+   - Restore the saved state in `onRestoreInstanceState(Bundle savedInstanceState)` or `onCreate(Bundle savedInstanceState)`.
+   - Example:
+     ```java
+     @Override
+     protected void onCreate(Bundle savedInstanceState) {
+         super.onCreate(savedInstanceState);
+         setContentView(R.layout.activity_main);
+         if (savedInstanceState != null) {
+             String text = savedInstanceState.getString("text");
+             editText.setText(text);
+         }
+     }
+     ```
+
+3. **Alternative: ViewModel**:
+   - Use a `ViewModel` to store UI data that survives configuration changes.
+   - Example:
+     ```java
+     class MyViewModel extends ViewModel {
+         MutableLiveData<String> text = new MutableLiveData<>();
+     }
+     ```
+
+---
+
+### **4. What are the lifecycle methods of a Fragment?**
+
+Fragments have their own lifecycle methods, intertwined with their hosting Activity's lifecycle.
+
+#### **Fragment Lifecycle Stages:**
+1. **Created**:
+   - `onAttach(Context context)`: Called when the Fragment is associated with its host Activity.
+   - `onCreate(Bundle savedInstanceState)`: Initialize Fragment-level resources (e.g., ViewModels).
+
+2. **Created View**:
+   - `onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)`: Inflate the Fragment's layout.
+   - `onViewCreated(View view, Bundle savedInstanceState)`: Perform setup tasks like initializing views.
+
+3. **Started**:
+   - `onStart()`: Fragment is visible to the user.
+
+4. **Resumed**:
+   - `onResume()`: Fragment is actively visible and interacting with the user.
+
+5. **Paused**:
+   - `onPause()`: Fragment is partially visible (e.g., another Fragment appears on top).
+
+6. **Stopped**:
+   - `onStop()`: Fragment is completely hidden.
+
+7. **Destroyed View**:
+   - `onDestroyView()`: Cleanup resources tied to the Fragment's view hierarchy.
+
+8. **Detached**:
+   - `onDestroy()`: Cleanup Fragment-level resources.
+   - `onDetach()`: Fragment is detached from its host Activity.
+
+---
+
+### **5. How do you replace one Fragment with another dynamically?**
+
+Fragments can be replaced dynamically during runtime using the `FragmentManager` and `FragmentTransaction`.
+
+#### **Steps to Replace a Fragment Dynamically:**
+1. **Define a Container in the Layout**:
+   - Create a container (e.g., `FrameLayout`) in your layout file to hold the Fragment.
+   ```xml
+   <FrameLayout
+       android:id="@+id/fragment_container"
+       android:layout_width="match_parent"
+       android:layout_height="match_parent" />
+   ```
+
+2. **Add/Replace the Fragment**:
+   - Use `FragmentManager` and `FragmentTransaction` to replace the Fragment.
+   ```java
+   Fragment fragment = new ExampleFragment();
+   FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+   transaction.replace(R.id.fragment_container, fragment);
+   transaction.addToBackStack(null); // Optional: Add to back stack
+   transaction.commit();
+   ```
+
+3. **Add to Back Stack**:
+   - Use `addToBackStack()` to allow the user to navigate back to the previous Fragment using the back button.
+
+4. **Example**:
+   ```java
+   public void showFragment() {
+       ExampleFragment newFragment = new ExampleFragment();
+       FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+
+       // Replace the current fragment with the new one
+       transaction.replace(R.id.fragment_container, newFragment);
+
+       // Add to back stack so the user can navigate back
+       transaction.addToBackStack(null);
+
+       // Commit the transaction
+       transaction.commit();
+   }
+   ```
+
+5. **Handle Back Navigation**:
+   - Override `onBackPressed()` in the Activity to handle Fragment back navigation if required.
+
+---
+
 
 
 
 13. UI Components & Customization
-What is the difference between match_parent and wrap_content?
 
+---
 
-How do you change the background color of a Button programmatically?
+### **1. What is the difference between `match_parent` and `wrap_content`?**
 
+#### **`match_parent`**
+- **Definition**: The view expands to fill the entire space of its parent container.
+- **Use Case**: When you want the view to take up all available space.
+- **Example**:
+  ```xml
+  <Button
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="Match Parent" />
+  ```
+  - In this case, the button will take up the full width of the parent container but only as much height as needed to fit its content.
 
-How do you create a custom Toast message in Android?
+#### **`wrap_content`**
+- **Definition**: The view resizes itself just enough to fit its content.
+- **Use Case**: When you want the view to adjust its size based on its content.
+- **Example**:
+  ```xml
+  <Button
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="Wrap Content" />
+  ```
+  - In this case, the button will be as wide and tall as its text content.
 
+---
 
-What is a Snackbar, and how does it differ from a Toast?
+### **2. How do you change the background color of a Button programmatically?**
 
+You can change the background color of a `Button` programmatically using the following code:
 
-How do you implement a ProgressBar in Android?
+#### **Example**:
+```java
+Button myButton = findViewById(R.id.my_button);
+
+// Change background color using a color resource
+myButton.setBackgroundColor(ContextCompat.getColor(this, R.color.teal_200));
+
+// Change background color using a hardcoded color
+myButton.setBackgroundColor(Color.parseColor("#FF5733"));
+```
+
+- **`ContextCompat.getColor()`**: Retrieves a color from the `res/values/colors.xml` file.
+- **`Color.parseColor()`**: Converts a hex color string into a color integer.
+
+---
+
+### **3. How do you create a custom Toast message in Android?**
+
+A custom `Toast` can be created by inflating a custom layout and attaching it to a `Toast` instance.
+
+#### **Steps to Create a Custom Toast**:
+1. **Create a Custom Layout (`toast_layout.xml`)**:
+   ```xml
+   <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+       android:layout_width="wrap_content"
+       android:layout_height="wrap_content"
+       android:orientation="horizontal"
+       android:background="@drawable/toast_background"
+       android:padding="10dp">
+
+       <ImageView
+           android:layout_width="40dp"
+           android:layout_height="40dp"
+           android:src="@drawable/ic_info" />
+
+       <TextView
+           android:layout_width="wrap_content"
+           android:layout_height="wrap_content"
+           android:text="Custom Toast Message"
+           android:textColor="#FFFFFF"
+           android:paddingStart="10dp" />
+   </LinearLayout>
+   ```
+
+2. **Inflate and Show the Custom Toast**:
+   ```java
+   LayoutInflater inflater = getLayoutInflater();
+   View layout = inflater.inflate(R.layout.toast_layout, null);
+
+   Toast toast = new Toast(getApplicationContext());
+   toast.setDuration(Toast.LENGTH_LONG);
+   toast.setView(layout);
+   toast.show();
+   ```
+
+---
+
+### **4. What is a Snackbar, and how does it differ from a Toast?**
+
+#### **What is a Snackbar?**
+- A Snackbar is a lightweight, transient message that appears at the bottom of the screen and can include an optional action (e.g., "Undo").
+- It is part of the Material Design Components.
+
+#### **Differences Between Snackbar and Toast**:
+
+| **Feature**       | **Snackbar**                               | **Toast**                                  |
+|-------------------|--------------------------------------------|-------------------------------------------|
+| **Actions**       | Can include an action (e.g., button).      | No actions supported.                     |
+| **Appearance**    | Appears at the bottom of the screen.       | Appears anywhere on the screen.           |
+| **Duration**      | Shorter duration with dismiss option.      | Can only show for short or long periods.  |
+| **Customization** | Supports better customization (color, etc.)| Limited customization options.            |
+
+#### **Example of a Snackbar**:
+```java
+Snackbar.make(findViewById(android.R.id.content), "Snackbar Message", Snackbar.LENGTH_LONG)
+        .setAction("Undo", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Handle action
+            }
+        }).show();
+```
+
+---
+
+### **5. How do you implement a ProgressBar in Android?**
+
+#### **What is a ProgressBar?**
+A `ProgressBar` is a visual indicator of the progress of a task, often used for loading screens or ongoing operations.
+
+#### **Types**:
+1. **Determinate ProgressBar**: Displays a specific progress value.
+2. **Indeterminate ProgressBar**: Indicates an ongoing process without showing exact progress.
+
+#### **Steps to Implement a ProgressBar**:
+
+1. **Add ProgressBar in the XML Layout**:
+   - **Indeterminate ProgressBar**:
+     ```xml
+     <ProgressBar
+         android:id="@+id/indeterminateProgressBar"
+         android:layout_width="wrap_content"
+         android:layout_height="wrap_content"
+         android:indeterminate="true" />
+     ```
+
+   - **Determinate ProgressBar**:
+     ```xml
+     <ProgressBar
+         android:id="@+id/determinateProgressBar"
+         android:layout_width="match_parent"
+         android:layout_height="wrap_content"
+         android:max="100"
+         android:progress="50" />
+     ```
+
+2. **Access and Control ProgressBar in Java/Kotlin**:
+   - **Indeterminate**:
+     ```java
+     ProgressBar indeterminateProgressBar = findViewById(R.id.indeterminateProgressBar);
+     indeterminateProgressBar.setVisibility(View.VISIBLE); // Show ProgressBar
+     indeterminateProgressBar.setVisibility(View.GONE);   // Hide ProgressBar
+     ```
+
+   - **Determinate**:
+     ```java
+     ProgressBar determinateProgressBar = findViewById(R.id.determinateProgressBar);
+     determinateProgressBar.setProgress(75); // Set progress to 75%
+     determinateProgressBar.setVisibility(View.VISIBLE); // Show ProgressBar
+     ```
+
+3. **Integration with a Background Task**:
+   - Use `Handler` or `AsyncTask` to update the progress dynamically.
+
+   **Example with Handler**:
+   ```java
+   ProgressBar progressBar = findViewById(R.id.determinateProgressBar);
+   progressBar.setMax(100);
+
+   Handler handler = new Handler();
+   for (int i = 0; i <= 100; i++) {
+       int progress = i;
+       handler.postDelayed(() -> progressBar.setProgress(progress), i * 100);
+   }
+   ```
+
+   **Example with Coroutines (Kotlin)**:
+   ```kotlin
+   val progressBar = findViewById<ProgressBar>(R.id.determinateProgressBar)
+   progressBar.max = 100
+
+   CoroutineScope(Dispatchers.Main).launch {
+       for (progress in 0..100) {
+           delay(100) // Simulate work
+           progressBar.progress = progress
+       }
+   }
+   ```
+
+4. **Customizing the ProgressBar**:
+   - Use `android:progressDrawable` to style the bar.
+   - Example:
+     ```xml
+     <ProgressBar
+         android:id="@+id/customProgressBar"
+         android:layout_width="match_parent"
+         android:layout_height="wrap_content"
+         android:progressDrawable="@drawable/custom_progress" />
+     ```
+
+   - `custom_progress.xml` (Drawable):
+     ```xml
+     <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+         <item android:id="@android:id/background" android:drawable="@android:color/darker_gray" />
+         <item android:id="@android:id/progress" android:drawable="@android:color/holo_blue_light" />
+     </layer-list>
+     ```
+
+---
+
 
 
 
 14. Event Handling & User Interaction
-How do you detect a long press on a Button?
 
+---
 
-What is the difference between setOnClickListener and setOnLongClickListener?
+### **1. How do you detect a long press on a Button?**
 
+To detect a long press on a `Button`, you can use the `setOnLongClickListener` method.
 
-How do you handle user input using EditText?
+#### **Example**:
+```java
+Button myButton = findViewById(R.id.my_button);
+myButton.setOnLongClickListener(new View.OnLongClickListener() {
+    @Override
+    public boolean onLongClick(View v) {
+        // Action to perform on long press
+        Toast.makeText(getApplicationContext(), "Button Long Pressed!", Toast.LENGTH_SHORT).show();
+        return true; // Return true to indicate the event is consumed
+    }
+});
+```
 
+- **Key Points**:
+  - `onLongClick(View v)`: Triggered when the user presses and holds the button.
+  - **Return Value**:
+    - `true`: Consumes the event (prevents further processing).
+    - `false`: Allows the event to propagate.
 
-How do you create a custom Dialog in Android?
+---
 
+### **2. What is the difference between `setOnClickListener` and `setOnLongClickListener`?**
 
-How do you handle gestures like swipe and pinch in an Android app?
+| **Aspect**               | **setOnClickListener**                           | **setOnLongClickListener**                      |
+|--------------------------|------------------------------------------------|-----------------------------------------------|
+| **Event Trigger**         | Triggered on a short press or tap.             | Triggered on a long press (held for a while). |
+| **Use Case**              | Used for quick actions like opening a screen.  | Used for secondary actions like showing a menu. |
+| **Listener Method**       | `onClick(View v)`                              | `onLongClick(View v)`                         |
+| **Return Value**          | Does not return a value.                       | Returns `boolean` to indicate event handling. |
+| **Event Propagation**     | Always consumed and stops propagation.         | Can propagate if `false` is returned.         |
 
+---
+
+### **3. How do you handle user input using EditText?**
+
+To handle user input in an `EditText`, you can retrieve the text entered by the user using the `getText()` method.
+
+#### **Example: Handling User Input**
+```java
+EditText editText = findViewById(R.id.edit_text);
+Button submitButton = findViewById(R.id.submit_button);
+
+submitButton.setOnClickListener(new View.OnClickListener() {
+    @Override
+    public void onClick(View v) {
+        String userInput = editText.getText().toString(); // Get user input
+        Toast.makeText(getApplicationContext(), "Input: " + userInput, Toast.LENGTH_SHORT).show();
+    }
+});
+```
+
+#### **Key Points**:
+1. **Input Validation**:
+   - Check if the input is empty or meets specific criteria.
+   ```java
+   if (userInput.isEmpty()) {
+       editText.setError("Field cannot be empty");
+   }
+   ```
+
+2. **Listening for Text Changes**:
+   - Use `TextWatcher` to listen for real-time text changes.
+   ```java
+   editText.addTextChangedListener(new TextWatcher() {
+       @Override
+       public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+       @Override
+       public void onTextChanged(CharSequence s, int start, int before, int count) {
+           // React to text changes
+       }
+
+       @Override
+       public void afterTextChanged(Editable s) {
+           // React after text changes
+       }
+   });
+   ```
+
+---
+
+### **4. How do you create a custom Dialog in Android?**
+
+A custom `Dialog` can be created by defining a custom layout and inflating it in a `Dialog` instance.
+
+#### **Steps to Create a Custom Dialog**:
+
+1. **Define a Custom Layout (`dialog_layout.xml`)**:
+   ```xml
+   <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+       android:layout_width="wrap_content"
+       android:layout_height="wrap_content"
+       android:orientation="vertical"
+       android:padding="16dp">
+
+       <TextView
+           android:id="@+id/dialog_title"
+           android:layout_width="wrap_content"
+           android:layout_height="wrap_content"
+           android:text="Custom Dialog Title"
+           android:textSize="18sp"
+           android:textStyle="bold" />
+
+       <EditText
+           android:id="@+id/dialog_input"
+           android:layout_width="match_parent"
+           android:layout_height="wrap_content"
+           android:hint="Enter something" />
+
+       <Button
+           android:id="@+id/dialog_button"
+           android:layout_width="match_parent"
+           android:layout_height="wrap_content"
+           android:text="Submit" />
+   </LinearLayout>
+   ```
+
+2. **Inflate and Show the Dialog**:
+   ```java
+   Button showDialogButton = findViewById(R.id.show_dialog_button);
+
+   showDialogButton.setOnClickListener(new View.OnClickListener() {
+       @Override
+       public void onClick(View v) {
+           // Create dialog
+           Dialog dialog = new Dialog(MainActivity.this);
+           dialog.setContentView(R.layout.dialog_layout);
+           dialog.setCancelable(true);
+
+           // Access dialog views
+           EditText dialogInput = dialog.findViewById(R.id.dialog_input);
+           Button dialogButton = dialog.findViewById(R.id.dialog_button);
+
+           dialogButton.setOnClickListener(new View.OnClickListener() {
+               @Override
+               public void onClick(View v) {
+                   String input = dialogInput.getText().toString();
+                   Toast.makeText(getApplicationContext(), "Input: " + input, Toast.LENGTH_SHORT).show();
+                   dialog.dismiss(); // Close dialog
+               }
+           });
+
+           dialog.show(); // Show dialog
+       }
+   });
+   ```
+
+---
+
+### **5. How do you handle gestures like swipe and pinch in an Android app?**
+
+To handle gestures like swipe and pinch, you can use the `GestureDetector` and `ScaleGestureDetector` classes.
+
+#### **Handling Swipe Gestures with GestureDetector**
+1. **Implement GestureDetector**:
+   ```java
+   GestureDetector gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+       @Override
+       public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+           if (e1.getX() - e2.getX() > 100) {
+               Toast.makeText(getApplicationContext(), "Swiped Left", Toast.LENGTH_SHORT).show();
+               return true;
+           } else if (e2.getX() - e1.getX() > 100) {
+               Toast.makeText(getApplicationContext(), "Swiped Right", Toast.LENGTH_SHORT).show();
+               return true;
+           }
+           return false;
+       }
+   });
+
+   @Override
+   public boolean onTouchEvent(MotionEvent event) {
+       return gestureDetector.onTouchEvent(event);
+   }
+   ```
+
+2. **Override Gesture Methods**:
+   - Use methods like `onScroll`, `onFling`, and `onLongPress` to detect gestures.
+
+---
+
+#### **Handling Pinch Gestures with ScaleGestureDetector**
+1. **Implement ScaleGestureDetector**:
+   ```java
+   ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(this, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+       @Override
+       public boolean onScale(ScaleGestureDetector detector) {
+           float scaleFactor = detector.getScaleFactor();
+           if (scaleFactor > 1) {
+               Toast.makeText(getApplicationContext(), "Zooming In", Toast.LENGTH_SHORT).show();
+           } else {
+               Toast.makeText(getApplicationContext(), "Zooming Out", Toast.LENGTH_SHORT).show();
+           }
+           return true;
+       }
+   });
+
+   @Override
+   public boolean onTouchEvent(MotionEvent event) {
+       scaleGestureDetector.onTouchEvent(event);
+       return super.onTouchEvent(event);
+   }
+   ```
+
+---
+
+#### **Using Both GestureDetector and ScaleGestureDetector Together**
+1. Combine both detectors in your `onTouchEvent` method:
+   ```java
+   @Override
+   public boolean onTouchEvent(MotionEvent event) {
+       scaleGestureDetector.onTouchEvent(event);
+       gestureDetector.onTouchEvent(event);
+       return super.onTouchEvent(event);
+   }
+   ```
+
+2. **Use Cases**:
+   - **Swipe**: Navigate between screens or items.
+   - **Pinch**: Zoom in/out of an image or map.
+
+---
 
 
 15. Navigation & Back Stack
-What is the difference between finish() and onBackPressed()?
+---
 
+### **1. What is the difference between `finish()` and `onBackPressed()`?**
 
-How do you prevent an Activity from being recreated when the device is rotated?
+#### **`finish()`**
+- **Definition**: Ends the current Activity and removes it from the Activity stack.
+- **Use Case**: Use it when you want to explicitly close an Activity, regardless of whether the back button was pressed.
+- **Behavior**:
+  - The `onDestroy()` lifecycle method is called.
+  - The previous Activity in the stack is resumed.
 
+#### **`onBackPressed()`**
+- **Definition**: Simulates a back button press and navigates back in the Activity stack.
+- **Use Case**: Use it when you want to programmatically trigger the same behavior as the back button.
+- **Behavior**:
+  - The `onBackPressed()` method is invoked.
+  - If there are no more Activities in the stack, the app exits.
 
-How do you navigate back to a specific Activity in the back stack?
+#### **Key Differences**:
+| **Aspect**          | **finish()**                              | **onBackPressed()**                        |
+|----------------------|-------------------------------------------|-------------------------------------------|
+| **Trigger**          | Directly ends the Activity.               | Simulates a back button press.            |
+| **Stack Behavior**   | Removes the current Activity from the stack. | Moves to the previous Activity in the stack. |
+| **Customization**    | Cannot be overridden.                     | Can be overridden to customize behavior.   |
 
+#### **Example**:
+```java
+@Override
+public void onBackPressed() {
+    // Custom behavior when back button is pressed
+    Toast.makeText(this, "Back button pressed", Toast.LENGTH_SHORT).show();
+    super.onBackPressed(); // Optional: Call the default behavior
+}
+```
 
-How do you open a website URL in a browser from an Android app?
+---
 
+### **2. How do you prevent an Activity from being recreated when the device is rotated?**
 
-What is the difference between startActivity() and startActivityForResult()?
+By default, rotating the device triggers a **configuration change**, causing the Activity to be destroyed and recreated. To prevent this behavior:
 
+#### **Approach 1: Modify the Manifest**
+- Add `android:configChanges` attribute in the `AndroidManifest.xml` file:
+  ```xml
+  <activity
+      android:name=".MainActivity"
+      android:configChanges="orientation|screenSize" />
+  ```
+- This prevents the Activity from being recreated and instead calls `onConfigurationChanged()`.
 
+#### **Approach 2: Retain Data Using ViewModel**
+- Use a `ViewModel` to retain UI-related data across configuration changes without recreating the Activity.
+  ```java
+  class MyViewModel extends ViewModel {
+      MutableLiveData<String> data = new MutableLiveData<>();
+  }
+  ```
+
+#### **Approach 3: Retain Fragment**
+- Use a `Fragment` with `setRetainInstance(true)` to retain data and prevent recreation of the Fragment.
+
+#### **Example of Handling Configuration Changes**:
+```java
+@Override
+public void onConfigurationChanged(Configuration newConfig) {
+    super.onConfigurationChanged(newConfig);
+    // Handle configuration changes here
+}
+```
+
+---
+
+### **3. How do you navigate back to a specific Activity in the back stack?**
+
+To navigate back to a specific Activity in the back stack, use the following methods:
+
+#### **Method 1: Use `FLAG_ACTIVITY_CLEAR_TOP`**
+- Add the `Intent.FLAG_ACTIVITY_CLEAR_TOP` flag to the `Intent`:
+  ```java
+  Intent intent = new Intent(this, TargetActivity.class);
+  intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+  startActivity(intent);
+  ```
+- **Behavior**:
+  - All Activities above the target Activity in the stack are cleared.
+  - The target Activity is brought to the foreground.
+
+#### **Method 2: Use `FLAG_ACTIVITY_REORDER_TO_FRONT`**
+- Add the `Intent.FLAG_ACTIVITY_REORDER_TO_FRONT` flag:
+  ```java
+  Intent intent = new Intent(this, TargetActivity.class);
+  intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+  startActivity(intent);
+  ```
+- **Behavior**:
+  - The target Activity is brought to the front without clearing other Activities.
+
+---
+
+### **4. How do you open a website URL in a browser from an Android app?**
+
+#### **Steps to Open a URL in a Browser**:
+1. Create an `Intent` with the `ACTION_VIEW` action.
+2. Pass the URL as a `Uri` to the `Intent`.
+3. Start the `Intent`.
+
+#### **Example**:
+```java
+String url = "https://www.example.com";
+Intent intent = new Intent(Intent.ACTION_VIEW);
+intent.setData(Uri.parse(url));
+startActivity(intent);
+```
+
+- **Behavior**: This opens the URL in the default browser installed on the device.
+- **Note**: Ensure the URL starts with `http://` or `https://`.
+
+---
+
+### **5. What is the difference between `startActivity()` and `startActivityForResult()`?**
+
+| **Aspect**               | **startActivity()**                              | **startActivityForResult()**                   |
+|--------------------------|-------------------------------------------------|-----------------------------------------------|
+| **Definition**            | Starts a new Activity without expecting a result. | Starts a new Activity and expects a result.   |
+| **Use Case**              | Navigate to another screen without requiring feedback. | Navigate to another screen and get feedback.  |
+| **Data Flow**             | No data is returned to the calling Activity.   | Data is returned to the calling Activity.     |
+| **Callback**              | No callback is triggered.                      | Triggers `onActivityResult()` for the result. |
+
+#### **Example of `startActivity()`**:
+```java
+Intent intent = new Intent(this, SecondActivity.class);
+startActivity(intent);
+```
+
+#### **Example of `startActivityForResult()`**:
+1. **Start the Activity**:
+   ```java
+   Intent intent = new Intent(this, SecondActivity.class);
+   startActivityForResult(intent, REQUEST_CODE);
+   ```
+
+2. **Handle the Result**:
+   ```java
+   @Override
+   protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+       super.onActivityResult(requestCode, resultCode, data);
+       if (requestCode == REQUEST_CODE && resultCode == RESULT_OK) {
+           String result = data.getStringExtra("key");
+           Toast.makeText(this, "Result: " + result, Toast.LENGTH_SHORT).show();
+       }
+   }
+   ```
+
+3. **Return Data from the Target Activity**:
+   ```java
+   Intent resultIntent = new Intent();
+   resultIntent.putExtra("key", "value");
+   setResult(RESULT_OK, resultIntent);
+   finish();
+   ```
+
+---
 
 16. Data Persistence & Storage
-What is the difference between caching and permanent storage in Android?
 
+---
 
-How do you store an array of values in SharedPreferences?
+### **1. What is the difference between caching and permanent storage in Android?**
 
+| **Aspect**             | **Caching**                                         | **Permanent Storage**                               |
+|------------------------|----------------------------------------------------|---------------------------------------------------|
+| **Definition**          | Temporary storage used for faster access to frequently used data. | Persistent storage where data is retained even after the app is closed or the device is restarted. |
+| **Use Case**            | Storing data like images, API responses, or files for quick access. | Storing user preferences, files, or databases that need to persist over time. |
+| **Lifespan**            | Data can be cleared by the system (e.g., when storage is low) or by the user. | Data persists until explicitly deleted by the app or user. |
+| **Storage Location**    | Cache directory (`getCacheDir()` or `getExternalCacheDir()`). | Internal storage (`getFilesDir()`), external storage, or databases. |
+| **System Management**   | Android may automatically clear cached data when storage runs low. | Permanent storage is not cleared automatically by the system. |
+| **Example**             | Storing temporary images or JSON responses.       | Saving user-generated content like notes or saved preferences. |
 
-What are the advantages of using the Room database instead of SQLite?
+#### **Example of Storing Data in Cache:**
+```java
+File cacheDir = getCacheDir();
+File tempFile = new File(cacheDir, "temp_data.txt");
+```
 
+#### **Example of Storing Data in Permanent Storage:**
+```java
+File filesDir = getFilesDir();
+File permanentFile = new File(filesDir, "user_data.txt");
+```
 
-How do you read and write files to internal storage?
+---
 
+### **2. How do you store an array of values in SharedPreferences?**
 
-How do you download and save a file from the internet in Android?
+SharedPreferences does not directly support storing arrays, but you can convert arrays to a format like JSON or a `Set` and save them.
+
+#### **Example 1: Using JSON**
+1. **Save Array**:
+   ```java
+   SharedPreferences sharedPreferences = getSharedPreferences("MyPrefs", Context.MODE_PRIVATE);
+   SharedPreferences.Editor editor = sharedPreferences.edit();
+
+   String[] array = {"value1", "value2", "value3"};
+   Gson gson = new Gson();
+   String json = gson.toJson(array);
+
+   editor.putString("array_key", json);
+   editor.apply();
+   ```
+
+2. **Retrieve Array**:
+   ```java
+   String json = sharedPreferences.getString("array_key", null);
+   String[] array = new Gson().fromJson(json, String[].class);
+   ```
+
+#### **Example 2: Using a Set (for String arrays only)**
+1. **Save Array**:
+   ```java
+   Set<String> set = new HashSet<>(Arrays.asList("value1", "value2", "value3"));
+   editor.putStringSet("array_key", set);
+   editor.apply();
+   ```
+
+2. **Retrieve Array**:
+   ```java
+   Set<String> set = sharedPreferences.getStringSet("array_key", null);
+   String[] array = set.toArray(new String[0]);
+   ```
+
+---
+
+### **3. What are the advantages of using the Room database instead of SQLite?**
+
+| **Feature**                | **Room**                                         | **SQLite**                                         |
+|----------------------------|-------------------------------------------------|--------------------------------------------------|
+| **Ease of Use**             | Provides an abstraction layer over SQLite, making database operations simpler. | Requires writing raw SQL queries manually.       |
+| **Compile-Time Verification** | SQL queries are verified at compile time, reducing runtime errors. | No compile-time verification for queries.        |
+| **Integration with LiveData** | Built-in support for `LiveData` and `Flow` to observe database changes. | Requires manual implementation for real-time updates. |
+| **Boilerplate Code**        | Reduces boilerplate code by using annotations like `@Entity`, `@Dao`. | Requires more boilerplate code for table creation and management. |
+| **Migration Support**       | Simplifies database versioning and migration.   | Requires manual handling of migrations.          |
+
+#### **Example of Room Implementation**:
+1. **Define an Entity**:
+   ```java
+   @Entity
+   public class User {
+       @PrimaryKey
+       public int id;
+       public String name;
+   }
+   ```
+
+2. **Create a DAO**:
+   ```java
+   @Dao
+   public interface UserDao {
+       @Insert
+       void insert(User user);
+
+       @Query("SELECT * FROM User")
+       List<User> getAllUsers();
+   }
+   ```
+
+3. **Build the Database**:
+   ```java
+   @Database(entities = {User.class}, version = 1)
+   public abstract class AppDatabase extends RoomDatabase {
+       public abstract UserDao userDao();
+   }
+   ```
+
+   ```java
+   AppDatabase db = Room.databaseBuilder(getApplicationContext(),
+           AppDatabase.class, "database-name").build();
+   ```
+
+---
+
+### **4. How do you read and write files to internal storage?**
+
+#### **Writing to Internal Storage**:
+```java
+String filename = "example.txt";
+String fileContents = "Hello, World!";
+try (FileOutputStream fos = openFileOutput(filename, Context.MODE_PRIVATE)) {
+    fos.write(fileContents.getBytes());
+}
+```
+
+- **`Context.MODE_PRIVATE`**: Ensures the file is private to the app.
+
+#### **Reading from Internal Storage**:
+```java
+String filename = "example.txt";
+try (FileInputStream fis = openFileInput(filename);
+     InputStreamReader isr = new InputStreamReader(fis);
+     BufferedReader bufferedReader = new BufferedReader(isr)) {
+
+    StringBuilder stringBuilder = new StringBuilder();
+    String line;
+    while ((line = bufferedReader.readLine()) != null) {
+        stringBuilder.append(line);
+    }
+    String fileContents = stringBuilder.toString();
+}
+```
+
+#### **Key Points**:
+- Internal storage is private to the app.
+- Files stored here are deleted when the app is uninstalled.
+
+---
+
+### **5. How do you download and save a file from the internet in Android?**
+
+#### **Steps to Download and Save a File**:
+1. **Add Internet Permission**:
+   - Add the following permission to the `AndroidManifest.xml`:
+     ```xml
+     <uses-permission android:name="android.permission.INTERNET" />
+     ```
+
+2. **Use `HttpURLConnection` to Download the File**:
+   ```java
+   private void downloadFile(String fileUrl, String fileName) {
+       try {
+           URL url = new URL(fileUrl);
+           HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+           connection.connect();
+
+           // Check for a successful response
+           if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+               throw new IOException("Server returned HTTP " + connection.getResponseCode());
+           }
+
+           // Input stream to read the file
+           InputStream inputStream = connection.getInputStream();
+
+           // Output stream to write the file to internal storage
+           FileOutputStream outputStream = openFileOutput(fileName, Context.MODE_PRIVATE);
+
+           byte[] buffer = new byte[1024];
+           int bytesRead;
+           while ((bytesRead = inputStream.read(buffer)) != -1) {
+               outputStream.write(buffer, bytesRead);
+           }
+
+           // Close streams
+           outputStream.close();
+           inputStream.close();
+           connection.disconnect();
+
+           Toast.makeText(this, "File downloaded successfully", Toast.LENGTH_SHORT).show();
+       } catch (Exception e) {
+           e.printStackTrace();
+           Toast.makeText(this, "Error downloading file", Toast.LENGTH_SHORT).show();
+       }
+   }
+   ```
+
+3. **Calling the Method**:
+   ```java
+   String fileUrl = "https://example.com/file.pdf";
+   String fileName = "downloaded_file.pdf";
+   downloadFile(fileUrl, fileName);
+   ```
+
+4. **Save to External Storage (Optional)**:
+   If saving to external storage, ensure you request **WRITE_EXTERNAL_STORAGE** permission on older Android versions and use the correct directory:
+   ```java
+   File externalFile = new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
+   FileOutputStream outputStream = new FileOutputStream(externalFile);
+   ```
+
+5. **Use DownloadManager (Optional)**:
+   Alternatively, use the `DownloadManager` for system-managed downloads:
+   ```java
+   DownloadManager downloadManager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+   Uri uri = Uri.parse(fileUrl);
+
+   DownloadManager.Request request = new DownloadManager.Request(uri);
+   request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+   request.setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, fileName);
+
+   downloadManager.enqueue(request);
+   ```
+
+---
+
 
 
 
 17. Networking & Internet Connectivity
-How do you check if the device is connected to the internet?
 
+---
 
-How do you make a simple HTTP GET request in Android?
+### **1. How do you check if the device is connected to the internet?**
 
+To check if the device is connected to the internet, you can use the `ConnectivityManager` class.
 
-What is the difference between synchronous and asynchronous network calls?
+#### **Example**:
+```java
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.NetworkCapabilities;
 
+public boolean isInternetAvailable(Context context) {
+    ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+    if (connectivityManager != null) {
+        NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.getActiveNetwork());
+        return capabilities != null &&
+               (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR));
+    }
+    return false;
+}
+```
 
-How do you parse a JSON response in Android?
+- **Key Points**:
+  - `TRANSPORT_WIFI`: Checks if the device is connected via Wi-Fi.
+  - `TRANSPORT_CELLULAR`: Checks if the device is connected via mobile data.
+  - Always request the `ACCESS_NETWORK_STATE` permission in the `AndroidManifest.xml`:
+    ```xml
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    ```
 
+---
 
-How do you load an image from a URL into an ImageView?
+### **2. How do you make a simple HTTP GET request in Android?**
 
+#### **Using `HttpURLConnection`**:
+```java
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+public String makeGetRequest(String urlString) {
+    try {
+        URL url = new URL(urlString);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
+        connection.connect();
+
+        // Check for a successful response
+        int responseCode = connection.getResponseCode();
+        if (responseCode == HttpURLConnection.HTTP_OK) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            StringBuilder result = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                result.append(line);
+            }
+            reader.close();
+            return result.toString(); // JSON or response content
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+    return null;
+}
+```
+
+- **Note**: This code works on a background thread (e.g., using `AsyncTask` or `Kotlin Coroutines`) to avoid blocking the UI thread.
+
+#### **Using Retrofit (Recommended)**:
+1. Add the Retrofit dependency in `build.gradle`:
+   ```gradle
+   implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+   implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+   ```
+
+2. Create a Retrofit interface:
+   ```java
+   public interface ApiService {
+       @GET("posts") // Example endpoint
+       Call<List<Post>> getPosts();
+   }
+   ```
+
+3. Make the request:
+   ```java
+   Retrofit retrofit = new Retrofit.Builder()
+       .baseUrl("https://jsonplaceholder.typicode.com/")
+       .addConverterFactory(GsonConverterFactory.create())
+       .build();
+
+   ApiService apiService = retrofit.create(ApiService.class);
+   apiService.getPosts().enqueue(new Callback<List<Post>>() {
+       @Override
+       public void onResponse(Call<List<Post>> call, Response<List<Post>> response) {
+           if (response.isSuccessful()) {
+               List<Post> posts = response.body();
+               // Handle the response
+           }
+       }
+
+       @Override
+       public void onFailure(Call<List<Post>> call, Throwable t) {
+           t.printStackTrace();
+       }
+   });
+   ```
+
+---
+
+### **3. What is the difference between synchronous and asynchronous network calls?**
+
+| **Aspect**              | **Synchronous**                                     | **Asynchronous**                                   |
+|-------------------------|----------------------------------------------------|--------------------------------------------------|
+| **Definition**           | The request blocks the current thread until it is complete. | The request runs in a separate thread, allowing the main thread to continue execution. |
+| **Thread Blocking**      | Blocks the thread, which could freeze the UI if run on the main thread. | Does not block the thread, ensuring smooth UI responsiveness. |
+| **Use Case**             | Suitable for background threads or quick operations. | Preferred for network calls to avoid blocking the UI. |
+| **Example**              | `HttpURLConnection` synchronous calls.            | Retrofit's `enqueue()` method.                   |
+
+---
+
+### **4. How do you parse a JSON response in Android?**
+
+You can parse JSON in Android using libraries like **Gson** or **org.json**.
+
+#### **Using `org.json`**:
+```java
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+public void parseJson(String jsonResponse) {
+    try {
+        JSONObject jsonObject = new JSONObject(jsonResponse);
+        String title = jsonObject.getString("title");
+
+        JSONArray itemsArray = jsonObject.getJSONArray("items");
+        for (int i = 0; i < itemsArray.length(); i++) {
+            JSONObject item = itemsArray.getJSONObject(i);
+            String name = item.getString("name");
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
+```
+
+#### **Using Gson Library (Recommended)**:
+1. Add Gson dependency:
+   ```gradle
+   implementation 'com.google.code.gson:gson:2.8.9'
+   ```
+
+2. Create a Data Model:
+   ```java
+   public class Post {
+       public int userId;
+       public int id;
+       public String title;
+       public String body;
+   }
+   ```
+
+3. Parse JSON:
+   ```java
+   Gson gson = new Gson();
+   Post post = gson.fromJson(jsonResponse, Post.class);
+   ```
+
+- **Key Advantage of Gson**: Automatically maps JSON keys to Java object fields.
+
+---
+
+### **5. How do you load an image from a URL into an ImageView?**
+
+#### **Using `Glide` (Recommended)**:
+1. Add Glide dependency:
+   ```gradle
+   implementation 'com.github.bumptech.glide:glide:4.14.2'
+   annotationProcessor 'com.github.bumptech.glide:compiler:4.14.2'
+   ```
+
+2. Load Image:
+   ```java
+   ImageView imageView = findViewById(R.id.imageView);
+   Glide.with(this)
+       .load("https://example.com/image.jpg")
+       .placeholder(R.drawable.placeholder) // Optional placeholder
+       .error(R.drawable.error_image)       // Error image
+       .into(imageView);
+   ```
+
+#### **Using `Picasso`**:
+1. Add Picasso dependency:
+   ```gradle
+   implementation 'com.squareup.picasso:picasso:2.8'
+   ```
+
+2. Load Image:
+   ```java
+   ImageView imageView = findViewById(R.id.imageView);
+   Picasso.get()
+       .load("https://example.com/image.jpg")
+       .placeholder(R.drawable.placeholder) // Optional placeholder
+       .error(R.drawable.error_image)       // Error image
+       .into(imageView);
+   ```
+
+#### **Using `AsyncTask` and `BitmapFactory` (Manual Approach)**:
+1. **Create an AsyncTask**:
+   ```java
+   private class DownloadImageTask extends AsyncTask<String, Void, Bitmap> {
+       ImageView imageView;
+
+       public DownloadImageTask(ImageView imageView) {
+           this.imageView = imageView;
+       }
+
+       @Override
+       protected Bitmap doInBackground(String... urls) {
+           String imageUrl = urls[0];
+           Bitmap bitmap = null;
+           try {
+               InputStream input = new java.net.URL(imageUrl).openStream();
+               bitmap = BitmapFactory.decodeStream(input);
+           } catch (Exception e) {
+               e.printStackTrace();
+           }
+           return bitmap;
+       }
+
+       @Override
+       protected void onPostExecute(Bitmap result) {
+           imageView.setImageBitmap(result);
+       }
+   }
+   ```
+
+2. **Load Image**:
+   ```java
+   new DownloadImageTask(imageView).execute("https://example.com/image.jpg");
+   ```
+
+#### **Why Use Glide or Picasso?**
+- **Ease of Use**: No need to manually handle threading.
+- **Caching**: Both libraries cache images for better performance.
+- **Error Handling**: Built-in support for placeholder and error images.
+- **Additional Features**: Image transformations (e.g., cropping, resizing).
+
+---
 
 
 18. Background Tasks & Services
-What is a Service in Android?
+---
 
+### **1. What is a Service in Android?**
 
-What is the difference between a Foreground Service and a Background Service?
+A `Service` in Android is a component that performs long-running operations in the background without providing a user interface. It is useful for tasks that don't require user interaction, such as playing music, downloading files, or syncing data in the background.
 
+#### **Key Features**:
+- Runs independently of the Activity lifecycle.
+- Can perform tasks even if the app is in the background.
+- Does not interact directly with the user.
 
-How do you schedule a task to run at a specific time in Android?
+#### **Types of Services**:
+1. **Foreground Service**: Runs in the foreground and shows a notification to the user (e.g., music player).
+2. **Background Service**: Runs without user interaction and no visible notification.
+3. **Bound Service**: Allows components (e.g., Activities) to bind to the service and interact with it.
 
+#### **Example**:
+```java
+public class MyService extends Service {
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        // Perform background work
+        return START_STICKY; // Keeps the service running until explicitly stopped
+    }
 
-What is the purpose of AlarmManager?
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null; // Used for bound services
+    }
+}
+```
 
+---
 
-How does WorkManager differ from JobScheduler?
+### **2. What is the difference between a Foreground Service and a Background Service?**
+
+| **Aspect**               | **Foreground Service**                                 | **Background Service**                                 |
+|--------------------------|-------------------------------------------------------|------------------------------------------------------|
+| **Definition**            | Runs in the foreground and shows a persistent notification to the user. | Runs in the background without user awareness.      |
+| **Visibility**            | Visible to the user through a notification.           | Not visible to the user.                             |
+| **Use Case**              | Tasks requiring user awareness, like media playback or location tracking. | Tasks like syncing data or uploading files.         |
+| **System Restrictions**   | Less likely to be stopped by the system.              | Subject to stricter restrictions starting from Android 8 (Oreo). |
+| **Example**               | Music player, step counter.                           | Data sync, periodic updates.                        |
+| **Notification**          | Mandatory notification shown while running.           | No notification required.                           |
+
+#### **Foreground Service Example**:
+```java
+public class MyForegroundService extends Service {
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        Notification notification = new Notification.Builder(this, "channel_id")
+            .setContentTitle("Service Running")
+            .setContentText("Foreground Service is active")
+            .setSmallIcon(R.drawable.ic_notification)
+            .build();
+
+        startForeground(1, notification); // Starts the service in the foreground
+        return START_STICKY;
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+}
+```
+
+---
+
+### **3. How do you schedule a task to run at a specific time in Android?**
+
+#### **Using `AlarmManager`**:
+`AlarmManager` can be used to schedule tasks to run at a specific time, even if the app is not running.
+
+#### **Steps**:
+1. **Create a `PendingIntent`**:
+   - This defines the action to be performed at the scheduled time.
+2. **Set the Alarm**:
+   - Use `setExact()` for precise scheduling or `setInexactRepeating()` for periodic tasks.
+
+#### **Example**:
+```java
+AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+Intent intent = new Intent(this, MyReceiver.class);
+PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+
+// Schedule the alarm
+long triggerTime = System.currentTimeMillis() + 60000; // 1 minute from now
+alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent);
+```
+
+- **BroadcastReceiver to Handle Alarm**:
+   ```java
+   public class MyReceiver extends BroadcastReceiver {
+       @Override
+       public void onReceive(Context context, Intent intent) {
+           // Perform the scheduled task here
+       }
+   }
+   ```
+
+#### **Using WorkManager (Recommended for Modern Apps)**:
+- WorkManager is more robust and respects system restrictions for background tasks.
+- Example:
+   ```java
+   OneTimeWorkRequest workRequest = new OneTimeWorkRequest.Builder(MyWorker.class)
+       .setInitialDelay(1, TimeUnit.MINUTES) // Delay by 1 minute
+       .build();
+   WorkManager.getInstance(context).enqueue(workRequest);
+   ```
+
+---
+
+### **4. What is the purpose of AlarmManager?**
+
+`AlarmManager` is a system service that allows you to schedule tasks to run at specific times or intervals, regardless of whether the app is running.
+
+#### **Key Features**:
+- Allows precise scheduling of tasks.
+- Can wake the device from sleep (`RTC_WAKEUP`).
+- Suitable for time-sensitive tasks like alarms, reminders, or notifications.
+
+#### **Common Use Cases**:
+1. **One-Time Tasks**:
+   - Use `setExact()` or `setExactAndAllowWhileIdle()` for precise, one-time alarms.
+2. **Repeating Tasks**:
+   - Use `setInexactRepeating()` for periodic tasks like syncing data.
+
+#### **Limitations**:
+- Starting from Android 6.0 (Marshmallow), `AlarmManager` is affected by Doze Mode, which restricts background execution.
+
+---
+
+### **5. How does WorkManager differ from JobScheduler?**
+
+| **Aspect**               | **WorkManager**                                   | **JobScheduler**                                 |
+|--------------------------|--------------------------------------------------|------------------------------------------------|
+| **Definition**            | Part of Android Jetpack; designed for deferrable, guaranteed background tasks. | Native Android API for scheduling background jobs. |
+| **Ease of Use**           | Simplified API with lifecycle-aware features.     | Requires more boilerplate code.                |
+| **Backward Compatibility**| Works on Android 4.0+ (API 14) using compatibility libraries. | Available only on Android 5.0+ (API 21).       |
+| **Task Execution**        | Supports both one-time and periodic tasks.        | Primarily used for periodic or network-related tasks. |
+| **Chaining Tasks**        | Supports task chaining and dependencies.          | No support for chaining tasks.                 |
+| **Constraints**           | Built-in constraints like network availability, charging state, and idle state. | Similar constraints but less flexibility.      |
+| **Use Case**              | Preferred for most background work in modern apps. | Suitable for periodic or long-running jobs.    |
+
+#### **Example of WorkManager**:
+```java
+// Define the Worker
+public class MyWorker extends Worker {
+    public MyWorker(@NonNull Context context, @NonNull WorkerParameters params) {
+        super(context, params);
+    }
+
+    @NonNull
+    @Override
+    public Result doWork() {
+        // Task to perform
+        return Result.success();
+    }
+}
+
+// Schedule the Work
+WorkRequest workRequest = new OneTimeWorkRequest.Builder(MyWorker.class)
+    .setConstraints(new Constraints.Builder()
+        .setRequiredNetworkType(NetworkType.CONNECTED)
+        .build())
+    .build();
+
+WorkManager.getInstance(context).enqueue(workRequest);
+```
+
+#### **Example of JobScheduler**:
+```java
+JobScheduler jobScheduler = (JobScheduler) getSystemService(Context.JOB_SCHEDULER_SERVICE);
+JobInfo jobInfo = new JobInfo.Builder(1, new ComponentName(this, MyJobService.class))
+    .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+    .setPeriodic(15 * 60 * 1000) // 15 minutes interval
+    .build();
+
+jobScheduler.schedule(jobInfo);
+```
+
+#### **Why Use WorkManager?**
+- It is more modern, flexible, and easier to implement.
+- Automatically handles Doze Mode and battery optimizations.
+- Supports task chaining and handles retries for failed tasks.
+
+---
 
 
 
 19. Firebase & Cloud Integration
-How do you add Firebase to an Android project?
 
+---
 
-What is Firestore, and how is it different from Firebase Realtime Database?
+### **1. How do you add Firebase to an Android project?**
 
+#### **Steps to Add Firebase to Your Project**:
+1. **Create a Firebase Project**:
+   - Visit the [Firebase Console](https://console.firebase.google.com/).
+   - Click "Add Project" and follow the setup prompts.
 
-How do you authenticate users using Firebase Authentication?
+2. **Register Your Android App**:
+   - In the Firebase Console, select your project.
+   - Click "Add App" > "Android".
+   - Enter your app's package name (e.g., `com.example.myapp`).
+   - Download the `google-services.json` file provided.
 
+3. **Add the `google-services.json` File**:
+   - Place the `google-services.json` file in the `app/` directory of your Android project.
 
-How do you send a Firebase push notification?
+4. **Modify `build.gradle` Files**:
+   - **Project-level `build.gradle`**:
+     ```gradle
+     dependencies {
+         classpath 'com.google.gms:google-services:4.3.15'
+     }
+     ```
+   - **App-level `build.gradle`**:
+     ```gradle
+     apply plugin: 'com.google.gms.google-services'
 
+     dependencies {
+         implementation platform('com.google.firebase:firebase-bom:32.1.1') // Firebase BOM
+         implementation 'com.google.firebase:firebase-analytics' // Example service
+     }
+     ```
 
-How do you upload an image to Firebase Storage?
+5. **Sync Your Project**:
+   - Click **Sync Now** in Android Studio to apply changes.
+
+---
+
+### **2. What is Firestore, and how is it different from Firebase Realtime Database?**
+
+| **Aspect**                | **Firestore**                                    | **Firebase Realtime Database**                     |
+|---------------------------|-------------------------------------------------|---------------------------------------------------|
+| **Data Model**             | Document-oriented (NoSQL), organized in collections of documents. | JSON tree-based, hierarchical structure.          |
+| **Querying**               | Advanced querying and filtering (e.g., compound queries, range). | Limited querying options, basic filtering.        |
+| **Scalability**            | Scales automatically with complex queries and large datasets. | Scales well but requires manual optimization for complex queries. |
+| **Offline Support**        | Built-in offline support with automatic data synchronization. | Offline support is available but requires more configuration. |
+| **Real-Time Updates**      | Supports real-time updates with listener callbacks. | Primarily designed for real-time data syncing.    |
+| **Use Case**               | Ideal for complex apps requiring advanced querying and structured data. | Best for simple, real-time apps like chat or live feeds. |
+
+---
+
+### **3. How do you authenticate users using Firebase Authentication?**
+
+#### **Steps to Use Firebase Authentication**:
+1. **Enable Authentication in Firebase Console**:
+   - Go to the Firebase Console > "Authentication" > "Sign-in Method".
+   - Enable the desired authentication methods (e.g., Email/Password, Google, Phone).
+
+2. **Add Firebase Authentication Dependency**:
+   - Update `build.gradle`:
+     ```gradle
+     implementation 'com.google.firebase:firebase-auth'
+     ```
+
+3. **Authenticate Users (Example: Email/Password)**:
+   ```java
+   FirebaseAuth auth = FirebaseAuth.getInstance();
+
+   // Sign up a new user
+   auth.createUserWithEmailAndPassword(email, password)
+       .addOnCompleteListener(task -> {
+           if (task.isSuccessful()) {
+               FirebaseUser user = auth.getCurrentUser();
+               Log.d("Auth", "User created: " + user.getEmail());
+           } else {
+               Log.e("Auth", "Error: " + task.getException().getMessage());
+           }
+       });
+
+   // Sign in an existing user
+   auth.signInWithEmailAndPassword(email, password)
+       .addOnCompleteListener(task -> {
+           if (task.isSuccessful()) {
+               FirebaseUser user = auth.getCurrentUser();
+               Log.d("Auth", "User signed in: " + user.getEmail());
+           } else {
+               Log.e("Auth", "Error: " + task.getException().getMessage());
+           }
+       });
+   ```
+
+4. **Sign Out**:
+   ```java
+   FirebaseAuth.getInstance().signOut();
+   ```
+
+---
+
+### **4. How do you send a Firebase push notification?**
+
+#### **Steps to Send Push Notifications**:
+1. **Set Up Firebase Cloud Messaging (FCM)**:
+   - In the Firebase Console, go to "Cloud Messaging".
+   - Obtain the **Server Key**.
+
+2. **Add FCM Dependency**:
+   ```gradle
+   implementation 'com.google.firebase:firebase-messaging'
+   ```
+
+3. **Receive Notifications in Your App**:
+   - Create a custom `FirebaseMessagingService`:
+     ```java
+     public class MyFirebaseMessagingService extends FirebaseMessagingService {
+         @Override
+         public void onMessageReceived(RemoteMessage remoteMessage) {
+             // Handle received message
+             Log.d("FCM", "Message received: " + remoteMessage.getData());
+         }
+
+         @Override
+         public void onNewToken(String token) {
+             Log.d("FCM", "New token: " + token);
+         }
+     }
+     ```
+
+   - Register the service in `AndroidManifest.xml`:
+     ```xml
+     <service android:name=".MyFirebaseMessagingService"
+              android:exported="true">
+         <intent-filter>
+             <action android:name="com.google.firebase.MESSAGING_EVENT" />
+         </intent-filter>
+     </service>
+     ```
+
+4. **Send Notifications**:
+   - Use the Firebase Console or a custom server to send notifications using the FCM API.
+
+---
+
+### **5. How do you upload an image to Firebase Storage?**
+
+#### **Steps to Upload an Image**:
+1. **Enable Firebase Storage**:
+   - Go to the Firebase Console > "Storage".
+   - Set up storage rules (default is read/write access only to authenticated users).
+
+2. **Add Firebase Storage Dependency**:
+   ```gradle
+   implementation 'com.google.firebase:firebase-storage'
+   ```
+
+3. **Upload an Image**:
+   - **Example: Select Image from Gallery and Upload**.
+   
+   ```java
+   public void uploadImage(Uri fileUri) {
+       FirebaseStorage storage = FirebaseStorage.getInstance();
+       StorageReference storageRef = storage.getReference();
+       StorageReference imageRef = storageRef.child("images/" + fileUri.getLastPathSegment());
+
+       imageRef.putFile(fileUri)
+           .addOnSuccessListener(taskSnapshot -> {
+               imageRef.getDownloadUrl().addOnSuccessListener(uri -> {
+                   String downloadUrl = uri.toString();
+                   Log.d("FirebaseStorage", "Image uploaded: " + downloadUrl);
+               });
+           })
+           .addOnFailureListener(e -> {
+               Log.e("FirebaseStorage", "Upload failed: " + e.getMessage());
+           });
+   }
+   ```
+
+4. **Select Image from Gallery**:
+   ```java
+   Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+   startActivityForResult(intent, PICK_IMAGE_REQUEST);
+   ```
+
+5. **Handle Image Selection**:
+   ```java
+   @Override
+   protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+       super.onActivityResult(requestCode, resultCode, data);
+       if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK) {
+           Uri fileUri = data.getData(); // Get the image URI
+           uploadImage(fileUri); // Upload the selected image
+       }
+   }
+   ```
+
+---
+
 
 
 
 20. Permissions & Security
-How do you request location permission in Android?
 
+---
 
-How do you ask for multiple permissions at runtime?
+### **1. How do you request location permission in Android?**
 
+#### **Steps to Request Location Permission**:
+1. **Declare Location Permission in `AndroidManifest.xml`**:
+   ```xml
+   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+   ```
 
-What is the purpose of the Android Keystore System?
+2. **Check Permission at Runtime** (Android 6.0+ requires runtime permissions):
+   ```java
+   if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+           != PackageManager.PERMISSION_GRANTED) {
+       // Permission is not granted, request it
+       ActivityCompat.requestPermissions(this,
+               new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+               LOCATION_REQUEST_CODE);
+   }
+   ```
 
+3. **Handle Permission Result**:
+   Override `onRequestPermissionsResult` to handle the user's response:
+   ```java
+   @Override
+   public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+       if (requestCode == LOCATION_REQUEST_CODE) {
+           if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+               // Permission granted
+               Toast.makeText(this, "Location Permission Granted", Toast.LENGTH_SHORT).show();
+           } else {
+               // Permission denied
+               Toast.makeText(this, "Location Permission Denied", Toast.LENGTH_SHORT).show();
+           }
+       }
+   }
+   ```
 
-How do you prevent unauthorized access to an API key in an Android app?
+4. **Best Practices**:
+   - Use `shouldShowRequestPermissionRationale()` to provide an explanation if the user denies the permission initially:
+     ```java
+     if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
+         // Show an explanation to the user
+     }
+     ```
 
+---
 
-What security risks should you consider when developing an Android app?
+### **2. How do you ask for multiple permissions at runtime?**
 
+#### **Steps to Request Multiple Permissions**:
+1. **Declare Permissions in `AndroidManifest.xml`**:
+   ```xml
+   <uses-permission android:name="android.permission.CAMERA" />
+   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+   ```
 
+2. **Request Permissions**:
+   Use `ActivityCompat.requestPermissions()` to request multiple permissions:
+   ```java
+   String[] permissions = {
+       Manifest.permission.CAMERA,
+       Manifest.permission.READ_EXTERNAL_STORAGE
+   };
 
-Would you like explanations or code snippets for any of these? 🚀
+   ActivityCompat.requestPermissions(this, permissions, MULTIPLE_PERMISSIONS_REQUEST_CODE);
+   ```
 
+3. **Handle the Permissions Result**:
+   ```java
+   @Override
+   public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+       if (requestCode == MULTIPLE_PERMISSIONS_REQUEST_CODE) {
+           for (int i = 0; i < permissions.length; i++) {
+               if (grantResults[i] == PackageManager.PERMISSION_GRANTED) {
+                   Log.d("Permissions", permissions[i] + " granted");
+               } else {
+                   Log.d("Permissions", permissions[i] + " denied");
+               }
+           }
+       }
+   }
+   ```
 
+4. **Best Practices**:
+   - Check each permission individually using `ContextCompat.checkSelfPermission()`.
+   - Always provide a rationale for critical permissions using `shouldShowRequestPermissionRationale()`.
 
+---
+
+### **3. What is the purpose of the Android Keystore System?**
+
+#### **Purpose**:
+The **Android Keystore System** provides a secure container for storing cryptographic keys and credentials. These keys are stored in a hardware-backed or software-protected environment, preventing unauthorized access even if the app's data is compromised.
+
+#### **Key Features**:
+1. **Key Storage**:
+   - Keys are stored securely and cannot be exported from the Keystore.
+2. **Hardware Security**:
+   - On supported devices, keys are stored in a hardware-backed secure environment.
+3. **Key Operations**:
+   - Keys can perform cryptographic operations like encryption, decryption, signing, and verification.
+4. **Use Cases**:
+   - Securely store API keys, user credentials, or sensitive data encryption keys.
+
+#### **Example: Generating and Using Keys**:
+1. **Generate a Key**:
+   ```java
+   KeyGenerator keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+   keyGenerator.init(new KeyGenParameterSpec.Builder("MyKeyAlias",
+           KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+           .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+           .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+           .build());
+   SecretKey key = keyGenerator.generateKey();
+   ```
+
+2. **Encrypt Data**:
+   ```java
+   Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+   cipher.init(Cipher.ENCRYPT_MODE, key);
+   byte[] encryptedData = cipher.doFinal(dataToEncrypt.getBytes());
+   ```
+
+3. **Decrypt Data**:
+   ```java
+   cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, cipher.getIV()));
+   byte[] decryptedData = cipher.doFinal(encryptedData);
+   ```
+
+#### **Advantages**:
+- Protects sensitive keys from unauthorized access.
+- Ensures keys are not exposed in app memory or storage.
+
+---
+
+### **4. How do you prevent unauthorized access to an API key in an Android app?**
+
+#### **Best Practices to Secure API Keys**:
+1. **Avoid Hardcoding API Keys**:
+   - Do not store API keys directly in your app's code (e.g., `BuildConfig`, strings.xml).
+
+2. **Use Environment Variables**:
+   - Store API keys in environment variables or external configuration files not included in the APK.
+
+3. **Store Keys in the Android Keystore**:
+   - Use the Android Keystore System to securely store sensitive keys.
+
+4. **Use Backend Proxy**:
+   - Do not call APIs directly from the client app. Instead, route requests through a secure backend server that adds the necessary credentials.
+
+5. **Obfuscate Code**:
+   - Use tools like **ProGuard** or **R8** to obfuscate your code and make it harder for attackers to decompile and extract keys.
+
+6. **Restrict API Key Usage**:
+   - Configure API key restrictions (e.g., use IP restrictions or domain restrictions in your API provider's dashboard).
+
+7. **Monitor API Usage**:
+   - Regularly monitor API usage to detect suspicious activity.
+
+---
+
+### **5. What security risks should you consider when developing an Android app?**
+
+#### **Key Security Risks**:
+1. **Data Leakage**:
+   - Sensitive data (e.g., user credentials, API keys) stored in plaintext is vulnerable to theft if the app is decompiled or the device is compromised.
+   - **Solution**: Use encrypted storage (e.g., Keystore, EncryptedSharedPreferences).
+
+2. **Insecure Communication**:
+   - Without proper encryption, data transmitted over the network can be intercepted (e.g., man-in-the-middle attacks).
+   - **Solution**: Always use HTTPS and implement SSL/TLS certificate pinning.
+
+3. **Code Injection**:
+   - Malicious code can be injected into the app if it lacks proper validation.
+   - **Solution**: Validate all inputs and sanitize data.
+
+4. **Reverse Engineering**:
+   - Attackers can decompile APKs to extract sensitive information like API keys or business logic.
+   - **Solution**: Use obfuscation tools like ProGuard and R8.
+
+5. **Weak Authentication**:
+   - Poorly implemented authentication can lead to unauthorized access.
+   - **Solution**: Use secure authentication methods like OAuth2, Firebase Authentication, or biometric authentication (e.g., fingerprint).
+
+6. **Insecure Permissions**:
+   - Over-requesting permissions can expose the app to abuse if permissions are exploited.
+   - **Solution**: Request only necessary permissions and provide clear justifications to users.
+
+7. **Unvalidated Data Storage**:
+   - Storing unvalidated data (e.g., user-generated files) can lead to security vulnerabilities like path traversal.
+   - **Solution**: Validate and sanitize all file paths and user input.
+
+8. **Outdated Libraries and Dependencies**:
+   - Using outdated libraries with known vulnerabilities can compromise app security.
+   - **Solution**: Regularly update libraries and dependencies.
+
+9. **Improper Session Management**:
+   - Failure to securely handle user sessions can lead to session hijacking.
+   - **Solution**: Use secure session tokens and implement session timeouts.
+
+10. **Insufficient Error Handling**:
+    - Revealing stack traces or error details in production can expose vulnerabilities.
+    - **Solution**: Log errors securely without exposing sensitive information.
+
+#### **Best Practices for Secure Android Development**:
+- Use the **Android Keystore** to store sensitive data.
+- Minimize permissions and follow the principle of least privilege.
+- Enforce strong encryption for local storage and network communication.
+- Implement strong authentication and authorization mechanisms.
+- Regularly test your app for vulnerabilities using tools like **OWASP ZAP** or **Burp Suite**.
+
+---
 
 
 
@@ -2327,54 +4151,764 @@ Medium level
 
 
 1. Android Components & Lifecycle
-What is the difference between onCreate() and onStart() in an Activity?
 
 
-How does the Fragment lifecycle differ from the Activity lifecycle?
+---
 
+### **1. What is the difference between `onCreate()` and `onStart()` in an Activity?**
 
-What is the purpose of ViewModel in Android, and how does it survive configuration changes?
+| **Aspect**            | **`onCreate()`**                                     | **`onStart()`**                                   |
+|-----------------------|-----------------------------------------------------|-------------------------------------------------|
+| **Purpose**            | Called when the Activity is first created.          | Called when the Activity becomes visible to the user. |
+| **Initialization**     | Used for initial setup such as inflating layouts, initializing components, and restoring savedInstanceState. | Used to prepare the UI for user interaction (e.g., starting animations or updating UI). |
+| **Lifecycle State**    | Called once during the Activity’s lifecycle (unless recreated). | Can be called multiple times (e.g., when returning from the background). |
+| **Execution Order**    | Called before `onStart()`.                          | Called after `onCreate()` but before `onResume()`. |
+| **Use Case**           | Initialize resources like layouts, ViewModels, or variables. | Start tasks that make the Activity visible to the user (e.g., refreshing data). |
 
+#### **Example**:
+```java
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_main); // Set the layout
+    Log.d("Lifecycle", "onCreate called");
+}
 
-What happens if you call finish() inside onCreate()?
+@Override
+protected void onStart() {
+    super.onStart();
+    Log.d("Lifecycle", "onStart called");
+}
+```
 
+---
 
-How do you handle a scenario where a Fragment needs to communicate with its hosting Activity?
+### **2. How does the Fragment lifecycle differ from the Activity lifecycle?**
+
+#### **Fragment Lifecycle**:
+The Fragment lifecycle is closely tied to its hosting Activity but has additional methods for managing its view hierarchy.
+
+| **Lifecycle Stage**         | **Activity**                                   | **Fragment**                                   |
+|-----------------------------|-----------------------------------------------|-----------------------------------------------|
+| **Initialization**           | `onCreate()`                                 | `onAttach()` (when Fragment is attached to Activity), `onCreate()`. |
+| **Creating View**            | N/A                                          | `onCreateView()` (inflate Fragment layout).   |
+| **View Created**             | N/A                                          | `onViewCreated()` (perform view-related tasks). |
+| **Visible to User**          | `onStart()` → `onResume()`                   | `onStart()` → `onResume()`.                   |
+| **Stopping**                 | `onPause()` → `onStop()`                     | `onPause()` → `onStop()`.                     |
+| **Destroying View**          | `onDestroy()`                                | `onDestroyView()` (destroy view hierarchy), `onDetach()` (detach Fragment from Activity). |
+
+#### **Key Differences**:
+1. **Fragment View Lifecycle**:
+   - A Fragment has a separate lifecycle for its view (`onCreateView()` to `onDestroyView()`), which is different from its overall lifecycle.
+   - This allows the Fragment to manage UI separately from its hosting Activity.
+
+2. **Attachment and Detachment**:
+   - Fragments are attached to and detached from their hosting Activity using `onAttach()` and `onDetach()`.
+
+3. **Activity Dependency**:
+   - A Fragment's lifecycle depends on its hosting Activity’s lifecycle.
+
+#### **Example of Fragment Lifecycle Methods**:
+```java
+@Override
+public void onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+    View view = inflater.inflate(R.layout.fragment_layout, container, false);
+    return view;
+}
+
+@Override
+public void onDestroyView() {
+    super.onDestroyView();
+    // Cleanup view-related resources
+}
+```
+
+---
+
+### **3. What is the purpose of ViewModel in Android, and how does it survive configuration changes?**
+
+#### **Purpose of ViewModel**:
+The `ViewModel` is a part of Android's Architecture Components and is designed to store and manage **UI-related data** in a lifecycle-conscious way.
+
+- **Key Benefits**:
+  1. **Survives Configuration Changes**:
+     - Retains data across configuration changes (e.g., screen rotation).
+     - Eliminates the need to reload data or perform expensive operations.
+  2. **Separation of Concerns**:
+     - Keeps UI logic separate from the Activity or Fragment, ensuring cleaner architecture.
+  3. **Lifecycle Awareness**:
+     - Automatically cleared when the Activity or Fragment is permanently destroyed.
+
+#### **How ViewModel Survives Configuration Changes?**:
+- ViewModel instances are tied to the lifecycle of their owner (Activity/Fragment).
+- When a configuration change occurs (e.g., screen rotation), the system retains the ViewModel and reattaches it to the new instance of the Activity or Fragment.
+
+#### **Example**:
+1. **Define a ViewModel**:
+   ```java
+   public class MyViewModel extends ViewModel {
+       private MutableLiveData<String> data;
+
+       public MutableLiveData<String> getData() {
+           if (data == null) {
+               data = new MutableLiveData<>();
+           }
+           return data;
+       }
+   }
+   ```
+
+2. **Use ViewModel in an Activity**:
+   ```java
+   MyViewModel viewModel = new ViewModelProvider(this).get(MyViewModel.class);
+
+   viewModel.getData().observe(this, data -> {
+       // Update the UI with the data
+   });
+
+   viewModel.getData().setValue("Hello, ViewModel!");
+   ```
+
+---
+
+### **4. What happens if you call `finish()` inside `onCreate()`?**
+
+- **Behavior**:
+  - When `finish()` is called inside `onCreate()`, the Activity is immediately marked for destruction.
+  - The `onStart()` and `onResume()` lifecycle methods are **not** invoked.
+  - The system proceeds to call `onPause()`, `onStop()`, and `onDestroy()`.
+
+- **Use Case**:
+  - Often used to terminate an Activity conditionally (e.g., invalid input or unfulfilled prerequisites).
+
+#### **Example**:
+```java
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+
+    if (!isUserLoggedIn()) {
+        finish(); // End the Activity if the user is not logged in
+    }
+
+    setContentView(R.layout.activity_main);
+}
+```
+
+#### **Key Points**:
+- Calling `finish()` in `onCreate()` prevents the Activity from being fully created.
+- Be cautious, as this can lead to unexpected behavior if not handled properly.
+
+---
+
+### **5. How do you handle a scenario where a Fragment needs to communicate with its hosting Activity?**
+
+#### **Best Practices for Fragment-Activity Communication**:
+1. **Using an Interface** (Recommended):
+   - Define an interface in the Fragment and implement it in the hosting Activity.
+
+   ```java
+   public class MyFragment extends Fragment {
+       private FragmentListener listener;
+
+       public interface FragmentListener {
+           void onFragmentAction(String data);
+       }
+
+       @Override
+       public void onAttach(Context context) {
+           super.onAttach(context);
+           if (context instanceof FragmentListener) {
+               listener = (FragmentListener) context;
+           } else {
+               throw new RuntimeException(context.toString() + " must implement FragmentListener");
+           }
+       }
+
+       @Override
+       public void onDetach() {
+           super.onDetach();
+           listener = null; // Avoid memory leaks
+       }
+
+       public void someMethod() {
+           if (listener != null) {
+               listener.onFragmentAction("Some data");
+           }
+       }
+   }
+   ```
+
+   - **Implement in Activity**:
+     ```java
+     public class MainActivity extends AppCompatActivity implements MyFragment.FragmentListener {
+         @Override
+         public void onFragmentAction(String data) {
+             Log.d("FragmentCommunication", "Received data: " + data);
+         }
+     }
+     ```
+
+2. **Using `ViewModel`** (for Shared Data):
+   - Use a shared `ViewModel` to communicate between the Fragment and its hosting Activity.
+   - **Example**:
+     ```java
+     public class SharedViewModel extends ViewModel {
+         private MutableLiveData<String> data = new MutableLiveData<>();
+
+         public MutableLiveData<String> getData() {
+             return data;
+         }
+     }
+     ```
+
+     - In the Fragment:
+       ```java
+       SharedViewModel viewModel = new ViewModelProvider(requireActivity()).get(SharedViewModel.class);
+       viewModel.getData().setValue("Data from Fragment");
+       ```
+
+     - In the Activity:
+       ```java
+       viewModel.getData().observe(this, data -> {
+           Log.d("ViewModelCommunication", "Received data: " + data);
+       });
+       ```
+
+3. **Using `Bundle`**:
+   - Pass data when adding the Fragment:
+     ```java
+     MyFragment fragment = new MyFragment();
+     Bundle args = new Bundle();
+     args.putString("key", "value");
+     fragment.setArguments(args);
+     ```
+
+   - Retrieve data in the Fragment:
+     ```java
+     String value = getArguments().getString("key");
+     ```
+
+#### **Key Points**:
+- Prefer using `ViewModel` for shared data across Fragments and Activities.
+- Use interfaces when the Fragment needs to trigger actions in the Activity.
+
+---
 
 
 
 2. UI & UX
-What is the difference between ConstraintLayout and RelativeLayout?
 
+---
 
-How does ViewBinding differ from findViewById() and DataBinding?
+### **1. What is the difference between ConstraintLayout and RelativeLayout?**
 
+| **Aspect**               | **ConstraintLayout**                              | **RelativeLayout**                              |
+|--------------------------|--------------------------------------------------|-----------------------------------------------|
+| **Definition**            | A flexible layout that allows positioning and sizing views using constraints to other views or parent. | A layout where views are positioned relative to other views or the parent using alignment rules. |
+| **Performance**           | Better performance due to a flat view hierarchy (no nested layouts). | May require nested layouts for complex designs, which can lead to poorer performance. |
+| **Flexibility**           | More flexible, supports chains, barriers, and guidelines for complex layouts. | Less flexible for complex layouts, relies on simple relative positioning. |
+| **Ease of Use**           | Slightly harder to learn initially due to advanced features. | Easier to use for simple layouts. |
+| **Use Case**              | Recommended for modern apps requiring complex or responsive designs. | Useful for simple relative positioning but largely replaced by ConstraintLayout. |
 
-How do you handle different screen sizes and densities in an Android app?
+#### **Example**:
+- **ConstraintLayout**:
+  ```xml
+  <androidx.constraintlayout.widget.ConstraintLayout
+      android:layout_width="match_parent"
+      android:layout_height="match_parent">
 
+      <TextView
+          android:id="@+id/textView"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="Hello, World!"
+          app:layout_constraintTop_toTopOf="parent"
+          app:layout_constraintStart_toStartOf="parent" />
 
-What are Snackbar, Toast, and Dialog, and when should you use each?
+      <Button
+          android:id="@+id/button"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="Click Me"
+          app:layout_constraintTop_toBottomOf="@id/textView"
+          app:layout_constraintStart_toStartOf="parent" />
+  </androidx.constraintlayout.widget.ConstraintLayout>
+  ```
 
+- **RelativeLayout**:
+  ```xml
+  <RelativeLayout
+      android:layout_width="match_parent"
+      android:layout_height="match_parent">
 
-How would you implement a ViewPager with tabs using the ViewPager2 component?
+      <TextView
+          android:id="@+id/textView"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="Hello, World!"
+          android:layout_alignParentTop="true"
+          android:layout_alignParentStart="true" />
+
+      <Button
+          android:id="@+id/button"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="Click Me"
+          android:layout_below="@id/textView"
+          android:layout_alignParentStart="true" />
+  </RelativeLayout>
+  ```
+
+---
+
+### **2. How does ViewBinding differ from findViewById() and DataBinding?**
+
+| **Aspect**                | **ViewBinding**                                  | **findViewById()**                              | **DataBinding**                              |
+|---------------------------|-------------------------------------------------|-----------------------------------------------|---------------------------------------------|
+| **Purpose**               | Provides type-safe access to views in your layout. | Finds views by their ID in the layout.         | Binds UI components to data sources with two-way binding. |
+| **Ease of Use**           | Simplifies view access, avoids null pointer exceptions. | Manual and error-prone, can lead to runtime issues if IDs change. | Complex but powerful for MVVM architecture. |
+| **Two-Way Binding**       | Not supported.                                  | Not supported.                                | Supported using `@={}` syntax.             |
+| **Performance**           | Lightweight and faster than DataBinding.         | Lightweight but requires manual casting.       | Slightly slower due to data binding overhead. |
+| **Use Case**              | Recommended for modern apps with simple view binding needs. | Suitable for small, simple apps.              | Ideal for apps using MVVM or complex UI interactions. |
+
+#### **Example of ViewBinding**:
+1. Enable ViewBinding in `build.gradle`:
+   ```gradle
+   android {
+       viewBinding {
+           enabled = true
+       }
+   }
+   ```
+
+2. Access Views:
+   ```java
+   ActivityMainBinding binding = ActivityMainBinding.inflate(getLayoutInflater());
+   setContentView(binding.getRoot());
+   binding.textView.setText("Hello, ViewBinding!");
+   ```
+
+#### **Example of DataBinding**:
+1. Enable DataBinding in `build.gradle`:
+   ```gradle
+   android {
+       dataBinding {
+           enabled = true
+       }
+   }
+   ```
+
+2. Use DataBinding in XML:
+   ```xml
+   <layout xmlns:android="http://schemas.android.com/apk/res/android">
+       <data>
+           <variable
+               name="viewModel"
+               type="com.example.MyViewModel" />
+       </data>
+       <TextView
+           android:text="@{viewModel.title}" />
+   </layout>
+   ```
+
+---
+
+### **3. How do you handle different screen sizes and densities in an Android app?**
+
+#### **Best Practices**:
+1. **Use `res/` Qualifiers**:
+   - Create layout files for different screen sizes:
+     - `res/layout` (default)
+     - `res/layout-sw600dp` (for tablets or larger screens).
+   - Create drawable resources for different densities:
+     - `drawable-mdpi`, `drawable-hdpi`, `drawable-xhdpi`, etc.
+
+2. **Use ConstraintLayout**:
+   - Design responsive layouts using constraints, chains, and guidelines.
+
+3. **Use `dimens.xml` for Scalable Dimensions**:
+   - Define dimensions in separate files for different screen sizes:
+     - `res/values/dimens.xml`
+     - `res/values-sw600dp/dimens.xml`.
+
+   ```xml
+   <!-- dimens.xml -->
+   <dimen name="text_size">16sp</dimen>
+
+   <!-- dimens-sw600dp.xml -->
+   <dimen name="text_size">20sp</dimen>
+   ```
+
+4. **Use `dp` and `sp` Units**:
+   - Use `dp` for layout dimensions and `sp` for font sizes to ensure scaling across devices.
+
+5. **Test on Multiple Devices**:
+   - Use the Android Emulator or physical devices with different screen sizes and densities.
+
+---
+
+### **4. What are Snackbar, Toast, and Dialog, and when should you use each?**
+
+| **Aspect**              | **Snackbar**                                   | **Toast**                                     | **Dialog**                                    |
+|-------------------------|-----------------------------------------------|---------------------------------------------|---------------------------------------------|
+| **Definition**           | A transient message displayed at the bottom of the screen with optional actions. | A brief message displayed on the screen.    | A modal window that blocks interaction until dismissed. |
+| **User Interaction**     | Can include an action (e.g., Undo button).    | No interaction; just a message.             | Can include buttons, inputs, or other UI elements. |
+| **Duration**             | Short or long; disappears automatically.      | Short or long; disappears automatically.     | Stays visible until explicitly dismissed.   |
+| **Use Case**             | For quick feedback with optional action, such as "Deleted item, Undo?". | For brief notifications like "Login successful". | For critical user actions like confirmation or input. |
+
+#### **Examples**:
+1. **Snackbar**:
+   ```java
+   Snackbar.make(findViewById(android.R.id.content), "Item deleted", Snackbar.LENGTH_LONG)
+           .setAction("Undo", v -> {
+               // Handle undo action
+           }).show();
+   ```
+
+2. **Toast**:
+   ```java
+   Toast.makeText(this, "Login Successful", Toast.LENGTH_SHORT).show();
+   ```
+
+3. **Dialog**:
+   ```java
+   new AlertDialog.Builder(this)
+       .setTitle("Delete Item")
+       .setMessage("Are you sure you want to delete this item?")
+       .setPositiveButton("Yes", (dialog, which) -> {
+           // Handle delete
+       })
+       .setNegativeButton("No", null)
+       .show();
+   ```
+
+---
+
+### **5. How would you implement a ViewPager with tabs using the ViewPager2 component?**
+
+#### **Steps to Implement ViewPager2 with Tabs**:
+
+1. **Add Dependencies**:
+   Add the required dependencies in `build.gradle`:
+   ```gradle
+   implementation 'androidx.viewpager2:viewpager2:1.1.0-beta01'
+   implementation 'com.google.android.material:material:1.10.0'
+   ```
+
+2. **Create Tab Fragments**:
+   Create fragments for each tab (e.g., `TabFragment1`, `TabFragment2`).
+
+   ```java
+   public class TabFragment1 extends Fragment {
+       @Nullable
+       @Override
+       public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+           return inflater.inflate(R.layout.fragment_tab1, container, false);
+       }
+   }
+   ```
+
+3. **Set Up ViewPager2 Adapter**:
+   Create an adapter for the ViewPager2:
+   ```java
+   public class ViewPagerAdapter extends FragmentStateAdapter {
+       public ViewPagerAdapter(@NonNull FragmentActivity fragmentActivity) {
+           super(fragmentActivity);
+       }
+
+       @NonNull
+       @Override
+       public Fragment createFragment(int position) {
+           switch (position) {
+               case 0:
+                   return new TabFragment1();
+               case 1:
+                   return new TabFragment2();
+               default:
+                   return new TabFragment1();
+           }
+       }
+
+       @Override
+       public int getItemCount() {
+           return 2; // Number of tabs
+       }
+   }
+   ```
+
+4. **Set Up ViewPager2 and TabLayout**:
+   In your Activity/Fragment:
+   ```java
+   ViewPager2 viewPager = findViewById(R.id.viewPager);
+   TabLayout tabLayout = findViewById(R.id.tabLayout);
+
+   ViewPagerAdapter adapter = new ViewPagerAdapter(this);
+   viewPager.setAdapter(adapter);
+
+   new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
+       switch (position) {
+           case 0:
+               tab.setText("Tab 1");
+               break;
+           case 1:
+               tab.setText("Tab 2");
+               break;
+       }
+   }).attach();
+   ```
+
+5. **Define Layout**:
+   ```xml
+   <com.google.android.material.tabs.TabLayout
+       android:id="@+id/tabLayout"
+       android:layout_width="match_parent"
+       android:layout_height="wrap_content" />
+
+   <androidx.viewpager2.widget.ViewPager2
+       android:id="@+id/viewPager"
+       android:layout_width="match_parent"
+       android:layout_height="match_parent" />
+   ```
+
+---
 
 
 
 3. Data Storage & Room Database
-What is the difference between SharedPreferences, Room, and SQLite in Android?
+Here are detailed answers to your queries:
 
+---
 
-How do you insert and retrieve data using Room Database?
+### **1. What is the difference between SharedPreferences, Room, and SQLite in Android?**
 
+| **Feature**                 | **SharedPreferences**                                | **Room**                                            | **SQLite**                                         |
+|-----------------------------|----------------------------------------------------|---------------------------------------------------|--------------------------------------------------|
+| **Purpose**                  | Key-value storage for simple data (e.g., user preferences, flags). | Abstraction over SQLite for structured data storage using an object-oriented approach. | Low-level database for structured data storage.  |
+| **Use Case**                 | Storing small key-value pairs.                     | Storing relational data with modern, lifecycle-aware APIs. | Storing relational data with raw SQL queries.    |
+| **Ease of Use**              | Very simple API.                                   | High-level abstraction, integrates with LiveData and Kotlin Coroutines. | Requires manual implementation of SQL queries and schema management. |
+| **Data Structure**           | Flat key-value pairs.                              | Entities, DAOs, and RoomDatabase classes.         | Tables, rows, and raw SQL queries.              |
+| **Performance**              | Lightweight and fast for small data.               | Optimized with compile-time validation of queries. | Manual optimizations required.                  |
+| **Migration Support**        | Not applicable.                                    | Built-in support for schema migrations.           | Requires manual schema migration.               |
 
-What are DAOs in Room, and why are they important?
+---
 
+### **2. How do you insert and retrieve data using Room Database?**
 
-How do you implement database migration in Room?
+#### **Step-by-Step Implementation**:
 
+1. **Add Room Dependencies**:
+   Add the following dependencies in your `build.gradle`:
+   ```gradle
+   implementation "androidx.room:room-runtime:2.5.0"
+   annotationProcessor "androidx.room:room-compiler:2.5.0"
+   // For Kotlin projects
+   kapt "androidx.room:room-compiler:2.5.0"
+   ```
 
-How can you optimize queries in Room for better performance?
+2. **Define an Entity**:
+   An entity represents a table in the database.
+   ```java
+   @Entity(tableName = "user_table")
+   public class User {
+       @PrimaryKey(autoGenerate = true)
+       public int id;
 
+       @ColumnInfo(name = "name")
+       public String name;
+
+       @ColumnInfo(name = "email")
+       public String email;
+   }
+   ```
+
+3. **Create a DAO (Data Access Object)**:
+   A DAO defines methods for accessing the database.
+   ```java
+   @Dao
+   public interface UserDao {
+       @Insert
+       void insert(User user);
+
+       @Query("SELECT * FROM user_table WHERE id = :id")
+       User getUserById(int id);
+
+       @Query("SELECT * FROM user_table")
+       List<User> getAllUsers();
+   }
+   ```
+
+4. **Define the Database**:
+   The database class serves as the main access point to the Room database.
+   ```java
+   @Database(entities = {User.class}, version = 1)
+   public abstract class AppDatabase extends RoomDatabase {
+       public abstract UserDao userDao();
+   }
+   ```
+
+5. **Initialize the Database**:
+   ```java
+   AppDatabase db = Room.databaseBuilder(getApplicationContext(),
+           AppDatabase.class, "user_database").build();
+
+   UserDao userDao = db.userDao();
+   ```
+
+6. **Insert Data**:
+   ```java
+   User user = new User();
+   user.name = "John Doe";
+   user.email = "john.doe@example.com";
+   new Thread(() -> userDao.insert(user)).start();
+   ```
+
+7. **Retrieve Data**:
+   ```java
+   new Thread(() -> {
+       User user = userDao.getUserById(1);
+       Log.d("Room", "User: " + user.name);
+   }).start();
+   ```
+
+---
+
+### **3. What are DAOs in Room, and why are they important?**
+
+#### **What is a DAO?**
+A DAO (Data Access Object) is an interface in Room that provides methods to interact with the database. It abstracts the raw SQL queries and provides a clean API for database operations.
+
+#### **Importance of DAOs**:
+1. **Separation of Concerns**:
+   - Keeps database logic separate from the rest of the application.
+2. **Compile-Time Verification**:
+   - Room validates the queries at compile-time, reducing runtime errors.
+3. **Simplified Syntax**:
+   - Eliminates the need for raw SQL, replacing it with annotations like `@Insert`, `@Query`, `@Update`, and `@Delete`.
+4. **Integration with Lifecycle Components**:
+   - DAOs work seamlessly with LiveData, Flow, and Coroutines.
+
+#### **Example**:
+```java
+@Dao
+public interface UserDao {
+    @Insert
+    void insert(User user);
+
+    @Update
+    void update(User user);
+
+    @Delete
+    void delete(User user);
+
+    @Query("SELECT * FROM user_table")
+    List<User> getAllUsers();
+}
+```
+
+---
+
+### **4. How do you implement database migration in Room?**
+
+#### **What is Database Migration?**
+When you update the database schema (e.g., add/remove columns, change table structure), a migration ensures that existing data is preserved.
+
+#### **Steps to Implement Migration**:
+1. **Increment the Database Version**:
+   Update the `version` parameter in the `@Database` annotation.
+
+   ```java
+   @Database(entities = {User.class}, version = 2)
+   public abstract class AppDatabase extends RoomDatabase {
+       public abstract UserDao userDao();
+   }
+   ```
+
+2. **Define a Migration**:
+   Create a `Migration` object to specify how to handle the schema change.
+   ```java
+   static final Migration MIGRATION_1_2 = new Migration(1, 2) {
+       @Override
+       public void migrate(@NonNull SupportSQLiteDatabase database) {
+           // Example: Add a new column
+           database.execSQL("ALTER TABLE user_table ADD COLUMN age INTEGER DEFAULT 0 NOT NULL");
+       }
+   };
+   ```
+
+3. **Provide the Migration to Room**:
+   Pass the migration object when building the database instance.
+   ```java
+   AppDatabase db = Room.databaseBuilder(getApplicationContext(),
+           AppDatabase.class, "user_database")
+           .addMigrations(MIGRATION_1_2)
+           .build();
+   ```
+
+---
+
+### **5. How can you optimize queries in Room for better performance?**
+
+#### **Best Practices for Optimizing Queries in Room**:
+
+1. **Use Paging for Large Datasets**:
+   - Implement Room with Paging 3 to load data in chunks instead of retrieving all data at once.
+   ```java
+   @Query("SELECT * FROM user_table")
+   PagingSource<Integer, User> getAllUsersPaged();
+   ```
+
+2. **Use Projections**:
+   - Retrieve only the required columns instead of fetching entire rows.
+   ```java
+   @Query("SELECT name FROM user_table WHERE id = :id")
+   String getUserNameById(int id);
+   ```
+
+3. **Index Columns**:
+   - Use the `@Index` annotation on frequently queried columns to improve search performance.
+   ```java
+   @Entity(tableName = "user_table", indices = {@Index(value = "email", unique = true)})
+   public class User {
+       @PrimaryKey(autoGenerate = true)
+       public int id;
+
+       @ColumnInfo(name = "email")
+       public String email;
+   }
+   ```
+
+4. **Use Transactions**:
+   - Group multiple operations into a single transaction to reduce overhead.
+   ```java
+   @Transaction
+   public void insertAndDelete(User userToInsert, User userToDelete) {
+       insert(userToInsert);
+       delete(userToDelete);
+   }
+   ```
+
+5. **Leverage LiveData and Flow**:
+   - Use LiveData or Flow to observe database changes and avoid unnecessary queries.
+   ```java
+   @Query("SELECT * FROM user_table")
+   LiveData<List<User>> getAllUsers();
+   ```
+
+6. **Use SQL Functions**:
+   - Use built-in SQL functions (e.g., `COUNT`, `MAX`, etc.) for operations instead of processing data in memory.
+   ```java
+   @Query("SELECT COUNT(*) FROM user_table")
+   int getUserCount();
+   ```
+
+7. **Precompile Queries**:
+   - Room precompiles queries, so avoid dynamically building queries whenever possible.
+
+8. **Use Room’s Built-in Caching**:
+   - Room caches database objects, so avoid unnecessary reloading of the same data.
+
+---
 
 
 4. Networking & APIs
